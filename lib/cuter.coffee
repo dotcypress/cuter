@@ -7,45 +7,46 @@ async = require 'async'
 rimraf = require 'rimraf'
 calculator = require './tile-calculator'
 
-
-
 slice = (file, options, cb) ->
   filePath = path.join process.cwd(), file
   sliceDir = "#{program.output}/#{path.basename file, path.extname file}"
   fs.mkdirSync sliceDir
-  cutTasks = _.map (_.range options.zoom + 1), (zoom) ->
-    (cb) ->
-      level = options.zoom - zoom
-      zoomedFile = "#{program.output}/origin/#{path.basename file}.#{level}"
-      scale = 100 / (zoom + 1)
-      gm(filePath)
-        .resize(scale, scale, '%')
-        .write zoomedFile, (err) ->
-          return err if err
-          normalizeFileSize zoomedFile, options, (err, normalizedFile) ->
-            cb err if err
-            cut normalizedFile, sliceDir, level, options, cb
-  async.parallel cutTasks, cb
+  normalizeImageSize filePath, options, (err, measurement) ->
+    cb err if err
+    console.log measurement.maxZoom
+    cutTasks = _.map (_.range measurement.maxZoom), (zoom) ->
+      (cb) ->
+        level = measurement.maxZoom - zoom
+        zoomedFile = "#{program.output}/origin/#{path.basename file}.#{level}"
+        ceils = Math.ceil(measurement.maxZoom / Math.pow(2, zoom))
+        newSize = ceils * options.size
+        return cb if newSize == 256
+        console.log "#{zoom}  #{newSize}, #{newSize}"
 
-normalizeFileSize = (file, options, cb) ->
+        gm(filePath)
+          .resize(newSize, newSize)
+          .write zoomedFile, (err) ->
+            return cb err if err
+            cut zoomedFile, sliceDir, level, options, ceils, cb
+    async.parallel cutTasks, cb
+
+normalizeImageSize = (file, options, cb) ->
   gm(file).size (err, result) ->
     return cb err if err
     newSize = calculator.calculateNormalizedSize result.width, result.height, options.size
     gm(file)
       .background("##{options.background}")
       .extent(newSize.width, newSize.height)
-      .write file, (err) -> cb err, file
+      .write file, (err) -> cb err, newSize
 
-cut = (file, sliceDir, zoom, options, cb) ->
+cut = (file, sliceDir, zoom, options, ceils, cb) ->
   gm(file).size (err, result) ->
     return cb err if err
-    columns = (result.width/ options.size) - 1
-    rows = (result.height / options.size) - 1
     tiles = []
     fs.mkdirSync "#{sliceDir}/#{zoom}"
-    for column in [0..columns]
+    for column in [0..ceils - 1]
       fs.mkdirSync "#{sliceDir}/#{zoom}/#{column}"
-      for row in [0..rows]
+      for row in [0..ceils - 1]
         tiles.push {x: column, y: row}
     cropTasks = _.map tiles, (tile) ->
       (cb) ->
@@ -53,7 +54,6 @@ cut = (file, sliceDir, zoom, options, cb) ->
     async.series cropTasks, cb
 
 crop = (tile, file, outputFile, options, cb) ->
-  console.log outputFile
   gm(file)
     .crop(options.size, options.size, tile.x * options.size, tile.y * options.size)
     .write outputFile, (err) -> cb err, file
@@ -63,9 +63,8 @@ run = () ->
     .version('0.0.1')
     .usage('[options] <file1> <file2> <file...>')
     .option('-o, --output [path]', 'Set output directory [tiles]', 'tiles')
-    .option('-s, --size [slice size]', 'Set slice size [250]', 250)
+    .option('-s, --size [slice size]', 'Set slice size [250]', 256)
     .option('-b, --background [color]', 'Background color [ffffff]', 'ffffff')
-    .option('-z, --zoom [level]', 'Maximum zoom level [5]', 5)
     .parse process.argv
 
   if program.args.length == 0
