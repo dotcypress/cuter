@@ -25,6 +25,9 @@
   "dependencies": {
     "coffee-script": "~1.6.1",
     "commander": "~1.1.1",
+    "underscore": "~1.4.4",
+    "async": "~0.2.6",
+    "rimraf": "~2.1.4",
     "gm": "~1.8.1"
   },
   "devDependencies": {
