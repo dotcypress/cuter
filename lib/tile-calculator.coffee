@@ -1,7 +1,10 @@
 module.exports.calculateNormalizedSize = (width, height, tileSize) ->
-  rows = Math.floor width / tileSize
-  columns = Math.floor height / tileSize
+  columns = Math.floor width / tileSize
   columns = columns + 1 if width / tileSize > 0
+  rows = Math.floor height / tileSize
   rows = rows + 1 if height / tileSize > 0
-  size = Math.max rows, columns
-  { maxZoom: size, width: size * tileSize, height: size * tileSize}
+  width: columns * tileSize, height: rows * tileSize, columns: columns, rows: rows
+
+module.exports.calculateMaxZoom = (width, height, tileSize) ->
+  min = Math.min width, height
+  Math.ceil Math.sqrt min / tileSize

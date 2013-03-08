@@ -11,24 +11,36 @@ slice = (file, options, cb) ->
   filePath = path.join process.cwd(), file
   sliceDir = "#{program.output}/#{path.basename file, path.extname file}"
   fs.mkdirSync sliceDir
-  normalizeImageSize filePath, options, (err, measurement) ->
-    cb err if err
-    console.log measurement.maxZoom
-    cutTasks = _.map (_.range measurement.maxZoom), (zoom) ->
+  gm(file).size (err, originalSize) ->
+    return cb err if err
+    maxZoom = calculator.calculateMaxZoom(originalSize.width, originalSize.height, options.size) + 1
+    cutTasks = _.map (_.range 1, maxZoom), (zoom) ->
       (cb) ->
-        level = measurement.maxZoom - zoom
-        zoomedFile = "#{program.output}/origin/#{path.basename file}.#{level}"
-        ceils = Math.ceil(measurement.maxZoom / Math.pow(2, zoom))
-        newSize = ceils * options.size
-        return cb if newSize == 256
-        console.log "#{zoom}  #{newSize}, #{newSize}"
-
+        level = maxZoom - zoom
+        zoomedSize =
+          width: originalSize.width / Math.pow level, 2
+          height: originalSize.height / Math.pow level, 2
+        zoomedFile = "#{program.output}/origin/#{path.basename file}.#{zoom}"
         gm(filePath)
-          .resize(newSize, newSize)
+          .resize(zoomedSize.width, zoomedSize.height)
           .write zoomedFile, (err) ->
             return cb err if err
-            cut zoomedFile, sliceDir, level, options, ceils, cb
+            cut zoomedFile, sliceDir, zoom, options, cb
     async.parallel cutTasks, cb
+
+cut = (file, sliceDir, zoom, options, cb) ->
+  normalizeImageSize file, options, (err, measurement) ->
+    cb err if err
+    tiles = []
+    fs.mkdirSync "#{sliceDir}/#{zoom}"
+    for column in [0..measurement.columns - 1]
+      fs.mkdirSync "#{sliceDir}/#{zoom}/#{column}"
+      for row in [0..measurement.rows - 1]
+        tiles.push {x: column, y: row}
+    cropTasks = _.map tiles, (tile) ->
+      (cb) ->
+        crop tile, file, "#{sliceDir}/#{zoom}/#{tile.x}/#{tile.y}.jpg", options, cb
+    async.series cropTasks, cb
 
 normalizeImageSize = (file, options, cb) ->
   gm(file).size (err, result) ->
@@ -38,20 +50,6 @@ normalizeImageSize = (file, options, cb) ->
       .background("##{options.background}")
       .extent(newSize.width, newSize.height)
       .write file, (err) -> cb err, newSize
-
-cut = (file, sliceDir, zoom, options, ceils, cb) ->
-  gm(file).size (err, result) ->
-    return cb err if err
-    tiles = []
-    fs.mkdirSync "#{sliceDir}/#{zoom}"
-    for column in [0..ceils - 1]
-      fs.mkdirSync "#{sliceDir}/#{zoom}/#{column}"
-      for row in [0..ceils - 1]
-        tiles.push {x: column, y: row}
-    cropTasks = _.map tiles, (tile) ->
-      (cb) ->
-        crop tile, file, "#{sliceDir}/#{zoom}/#{tile.x}/#{tile.y}.jpg", options, cb
-    async.series cropTasks, cb
 
 crop = (tile, file, outputFile, options, cb) ->
   gm(file)
