@@ -71,7 +71,7 @@ crop = (tile, file, outputFile, options, cb) ->
 
 run = () ->
   program
-    .version('0.0.1')
+    .version('0.0.2')
     .usage('[options] <file1> <file2> <file...>')
     .option('-o, --output [path]', 'Set output directory [tiles]', 'tiles')
     .option('-s, --size [slice size]', 'Set slice size [256]', 256)
@@ -80,7 +80,7 @@ run = () ->
 
   if program.args.length == 0
     program.outputHelp()
-    return
+    return bar.rl.close()
 
   program.output = path.join process.cwd(), program.output
 
