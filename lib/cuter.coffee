@@ -67,14 +67,14 @@ normalizeImageSize = (file, options, cb) ->
 crop = (tile, file, outputFile, options, cb) ->
   gm(file)
     .crop(options.size, options.size, tile.x * options.size, tile.y * options.size)
-    .write outputFile, (err) -> cb err, file
+    .write outputFile, cb
 
 run = () ->
   program
     .version('0.0.1')
     .usage('[options] <file1> <file2> <file...>')
     .option('-o, --output [path]', 'Set output directory [tiles]', 'tiles')
-    .option('-s, --size [slice size]', 'Set slice size [250]', 256)
+    .option('-s, --size [slice size]', 'Set slice size [256]', 256)
     .option('-b, --background [color]', 'Background color [ffffff]', 'ffffff')
     .parse process.argv
 
