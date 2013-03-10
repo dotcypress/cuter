@@ -1,6 +1,6 @@
 {
   "name": "cuter",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Image tile cutter",
   "keywords": [
     "image",
@@ -28,7 +28,8 @@
     "underscore": "~1.4.4",
     "async": "~0.2.6",
     "rimraf": "~2.1.4",
-    "gm": "~1.8.1"
+    "gm": "~1.8.1",
+    "progress": "~0.1.0"
   },
   "devDependencies": {
     "mocha": "~1.8.1"
