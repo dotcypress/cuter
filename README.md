@@ -5,7 +5,7 @@ Image tile cutter.
 
 ## Usage
 
-    Usage: cuter [options] <file1> <file2> <file...>
+    Usage: cuter [options] <file>
 
     Options:
 

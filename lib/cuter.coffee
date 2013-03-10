@@ -5,7 +5,14 @@ gm = require 'gm'
 _ = require 'underscore'
 async = require 'async'
 rimraf = require 'rimraf'
+ProgressBar = require 'progress'
 calculator = require './tile-calculator'
+
+bar = new ProgressBar 'Slicing [:bar] :percent :etas',
+    complete: '='
+    incomplete: ' '
+    width: 30
+    total: 1
 
 slice = (file, options, cb) ->
   filePath = path.join process.cwd(), file
@@ -26,7 +33,11 @@ slice = (file, options, cb) ->
           .write zoomedFile, (err) ->
             return cb err if err
             cut zoomedFile, sliceDir, zoom, options, cb
-    async.parallel cutTasks, cb
+    async.parallel cutTasks, (err, tasks) ->
+      cb err if err
+      cropTasks = _.flatten tasks
+      bar.total += cropTasks.length
+      async.series cropTasks, cb
 
 cut = (file, sliceDir, zoom, options, cb) ->
   normalizeImageSize file, options, (err, measurement) ->
@@ -39,8 +50,10 @@ cut = (file, sliceDir, zoom, options, cb) ->
         tiles.push {x: column, y: row}
     cropTasks = _.map tiles, (tile) ->
       (cb) ->
-        crop tile, file, "#{sliceDir}/#{zoom}/#{tile.x}/#{tile.y}.jpg", options, cb
-    async.series cropTasks, cb
+        crop tile, file, "#{sliceDir}/#{zoom}/#{tile.x}/#{tile.y}.jpg", options, (err) ->
+          bar.tick()
+          cb()
+    cb null, cropTasks
 
 normalizeImageSize = (file, options, cb) ->
   gm(file).size (err, result) ->
@@ -75,10 +88,11 @@ run = () ->
     fs.mkdirSync program.output
     fs.mkdirSync "#{program.output}/origin"
 
-    sliceTasks = _.map program.args, (file) -> (cb) -> slice file, program, cb
-    async.parallel sliceTasks, (err, results) ->
-      if err
-        console.log err
-        return
+    slice program.args[0], program, (err, result) ->
+      return console.log err if err
+      rimraf "#{program.output}/origin", (err) ->
+        bar.tick()
+        console.log '\ncomplete\n'
+        bar.rl.close()
 
 module.exports.run = run
